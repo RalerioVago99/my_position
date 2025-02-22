@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Trova la tua posizione GPS</title>
   <style>
     /* RESET DI BASE */
@@ -43,7 +43,20 @@
       margin-bottom: 20px;
     }
 
-    /* STILE PER IL BOTTONE CIRCOLARE */
+    /* ANIMAZIONE “PULSE” */
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* BOTTONE CIRCOLARE (usato sia per "VAI" che per "COPIA") */
     .circle-btn {
       position: relative;
       display: inline-flex;
@@ -62,8 +75,6 @@
       transition: transform 0.3s ease;
       z-index: 1; /* per essere sopra al cerchio del gradiente */
     }
-
-    /* Effetto “anello gradiente” con pseudo-elemento */
     .circle-btn::before {
       content: "";
       position: absolute;
@@ -75,15 +86,16 @@
       background: linear-gradient(45deg, #00f260, #0575e6);
       z-index: -1;
     }
-
-    /* Effetto hover */
     .circle-btn:hover {
       transform: scale(1.05);
     }
-
-    /* Effetto “pressione” al click */
     .circle-btn:active {
       transform: scale(0.95);
+    }
+
+    /* CLASSE AGGIUNTIVA PER L'ANIMAZIONE “PULSE” INFINITA */
+    .pulse {
+      animation: pulse 2s infinite;
     }
 
     /* TESTO DEI RISULTATI */
@@ -108,10 +120,11 @@
   <div class="container">
     <h1>Trova la tua posizione GPS</h1>
     <p>Consenti l'accesso alla tua posizione per ottenere coordinate e indirizzo.</p>
-    <!-- Bottone per ottenere le coordinate -->
-    <button class="circle-btn" onclick="getLocation()">VAI</button>
+
+    <!-- Bottone circolare per ottenere le coordinate (con animazione “pulse”) -->
+    <button class="circle-btn pulse" id="goButton" onclick="getLocation()">VAI</button>
     
-    <!-- Area dove mostrare i risultati -->
+    <!-- Area dove mostrare i risultati e il secondo pulsante -->
     <div id="coordinates"></div>
   </div>
 
@@ -128,43 +141,49 @@
     function showPosition(position) {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
-      const coordinates = `Latitudine: ${lat.toFixed(6)}, Longitudine: ${lon.toFixed(6)}`;
-      const coordsDiv = document.getElementById("coordinates");
 
-      coordsDiv.innerHTML = coordinates + "<br>Recupero indirizzo...";
+      // Mostriamo le coordinate in pagina
+      const coordsDiv = document.getElementById("coordinates");
+      coordsDiv.innerHTML = `
+        Latitudine: ${lat.toFixed(6)}, Longitudine: ${lon.toFixed(6)}
+        <br>Recupero indirizzo...
+      `;
 
       // Reverse Geocoding con Nominatim (OpenStreetMap)
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
-
       fetch(url)
         .then(response => response.json())
         .then(data => {
           const address = data.address || {};
-          // Verifica se esistono informazioni su strada e città
-          const road = address.road ? address.road : "";
-          const city = address.city ? address.city 
-                     : (address.town ? address.town 
-                     : (address.village ? address.village : ""));
-          
+
+          // Estraggo via, città e (se disponibile) la provincia
+          const road = address.road || "";
+          const city = address.city || address.town || address.village || "";
+          // Tentativo di leggere la provincia (non sempre presente come “XX”)
+          const province = address.county || address.state_code || "";
+
+          // Prepariamo il testo da mostrare in pagina
           let displayAddress = "";
-          if (road || city) {
-            displayAddress = `<br>Indirizzo: ${road}${road && city ? ', ' : ''}${city}`;
+          if (road || city || province) {
+            displayAddress = `<br>Indirizzo: ${road}${road && city ? ', ' : ''}${city}${(city || road) && province ? ' (' + province + ')' : ''}`;
           } else {
             displayAddress = "<br>Indirizzo non trovato.";
           }
 
+          // Mostriamo il risultato in pagina + pulsante “COPIA”
           coordsDiv.innerHTML = `
-            ${coordinates}${displayAddress}
+            Latitudine: ${lat.toFixed(6)}, Longitudine: ${lon.toFixed(6)}
+            ${displayAddress}
             <br><br>
-            <button class="circle-btn" 
-                    style="width: 140px; height: 50px; border-radius: 25px; font-size: 16px;"
-                    onclick="copyCoordinates('${lat.toFixed(6)}, ${lon.toFixed(6)} - ${road} ${city}')">
+            <!-- Bottone circolare “COPIA” con animazione “pulse” -->
+            <button class="circle-btn pulse" id="copyButton"
+                    onclick="copyCoordinates('${lat}', '${lon}', '${road}', '${city}', '${province}')">
               COPIA
             </button>
           `;
         })
         .catch(error => {
-          coordsDiv.innerHTML = `${coordinates}<br>Impossibile recuperare l'indirizzo.`;
+          coordsDiv.innerHTML = `Latitudine: ${lat.toFixed(6)}, Longitudine: ${lon.toFixed(6)}<br>Impossibile recuperare l'indirizzo.`;
         });
     }
 
@@ -186,14 +205,34 @@
       }
     }
 
-    function copyCoordinates(coords) {
-      const tempInput = document.createElement("input");
+    // Copia il testo su più righe con la formattazione richiesta
+    function copyCoordinates(lat, lon, road, city, province) {
+      const latStr = `latitudine: ${parseFloat(lat).toFixed(6)}`;
+      const lonStr = `longitudine: ${parseFloat(lon).toFixed(6)}`;
+      const viaStr = road ? `Via: ${road}` : "";
+      const cityStr = city ? `Città: ${city}` : "";
+      const provinceStr = province ? `Provincia: ${province}` : "";
+
+      // Costruiamo il testo su più righe
+      const copyText = [
+        latStr,
+        lonStr,
+        viaStr,
+        cityStr,
+        provinceStr
+      ]
+      .filter(Boolean) // rimuove le stringhe vuote
+      .join("\n");
+
+      // Creiamo un <textarea> temporaneo per copiare negli appunti
+      const tempInput = document.createElement("textarea");
+      tempInput.value = copyText;
       document.body.appendChild(tempInput);
-      tempInput.value = coords;
       tempInput.select();
       document.execCommand("copy");
       document.body.removeChild(tempInput);
-      alert("Coordinate copiate: " + coords);
+
+      alert("Coordinate copiate:\n\n" + copyText);
     }
   </script>
 </body>
