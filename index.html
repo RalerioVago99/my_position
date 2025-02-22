@@ -7,8 +7,24 @@
   <style>
     body {
       font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to right, #83a4d4, #b6fbff);
+    }
+    .container {
+      background-color: rgba(255, 255, 255, 0.95);
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
       text-align: center;
-      padding: 50px;
+    }
+    h1 {
+      margin-bottom: 10px;
+    }
+    p {
+      margin-bottom: 20px;
     }
     button {
       padding: 10px 20px;
@@ -17,7 +33,12 @@
       background-color: #4CAF50;
       color: white;
       border: none;
-      border-radius: 5px;
+      border-radius: 20px;
+      margin: 10px;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #45a049;
     }
     #coordinates {
       margin-top: 20px;
@@ -27,10 +48,12 @@
   </style>
 </head>
 <body>
-  <h1>Trova la tua posizione GPS</h1>
-  <p>Consenti l'accesso alla tua posizione per ottenere le coordinate GPS.</p>
-  <button onclick="getLocation()">Ottieni Coordinate</button>
-  <div id="coordinates"></div>
+  <div class="container">
+    <h1>Trova la tua posizione GPS</h1>
+    <p>Consenti l'accesso alla tua posizione per ottenere le coordinate GPS e l'indirizzo.</p>
+    <button onclick="getLocation()">Ottieni Coordinate</button>
+    <div id="coordinates"></div>
+  </div>
 
   <script>
     function getLocation() {
@@ -44,12 +67,34 @@
     function showPosition(position) {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
-      const coordinates = `Latitudine: ${lat}, Longitudine: ${lon}`;
-      document.getElementById("coordinates").innerHTML = `
-        ${coordinates} 
-        <br><br>
-        <button onclick="copyCoordinates('${coordinates}')">Copia le coordinate</button>
-      `;
+      const coordinates = `Latitudine: ${lat.toFixed(6)}, Longitudine: ${lon.toFixed(6)}`;
+      document.getElementById("coordinates").innerHTML = coordinates + "<br>Recupero indirizzo...";
+
+      // Chiamata al servizio di reverse geocoding tramite Nominatim
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+
+      fetch(url)
+        .then(response => response.json())
+        .then(data => {
+          let address = data.address || {};
+          // Recupera la via (road) e la città (city, town o village)
+          let road = address.road ? address.road : "";
+          let city = address.city ? address.city : (address.town ? address.town : (address.village ? address.village : ""));
+          let displayAddress = "";
+          if (road || city) {
+            displayAddress = `<br>Indirizzo: ${road}${road && city ? ', ' : ''}${city}`;
+          } else {
+            displayAddress = "<br>Indirizzo non trovato.";
+          }
+          // Visualizza le coordinate insieme all'indirizzo e aggiunge il pulsante per copiare
+          document.getElementById("coordinates").innerHTML = `
+            ${coordinates}${displayAddress}<br><br>
+            <button onclick="copyCoordinates('${lat.toFixed(6)}, ${lon.toFixed(6)} - ${road} ${city}')">Copia le coordinate</button>
+          `;
+        })
+        .catch(error => {
+          document.getElementById("coordinates").innerHTML = `${coordinates}<br>Impossibile recuperare l'indirizzo.`;
+        });
     }
 
     function showError(error) {
