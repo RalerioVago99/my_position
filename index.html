@@ -3,64 +3,125 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calcola le Coordinate GPS</title>
+  <title>Trova la tua posizione GPS</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
+    /* RESET DI BASE */
+    * {
       margin: 0;
       padding: 0;
-      background: linear-gradient(to right, #83a4d4, #b6fbff);
+      box-sizing: border-box;
     }
+
+    /* STILE DI BASE PER IL BODY */
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #1a1a1a; /* Sfondo scuro */
+      color: #fff; /* Testo bianco */
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* CONTENITORE CENTRALE */
     .container {
-      background-color: rgba(255, 255, 255, 0.95);
-      max-width: 600px;
-      margin: 50px auto;
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
       padding: 30px;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 600px;
       text-align: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
     }
+
     h1 {
-      margin-bottom: 10px;
+      margin-bottom: 15px;
     }
+
     p {
       margin-bottom: 20px;
     }
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 20px;
+
+    /* STILE PER IL BOTTONE CIRCOLARE */
+    .circle-btn {
+      position: relative;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      width: 120px;        /* diametro del bottone */
+      height: 120px;       /* diametro del bottone */
       margin: 10px;
-      transition: background-color 0.3s ease;
+      border: none;
+      border-radius: 50%;
+      background: #1a1a1a; /* Sfondo interno del bottone */
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: transform 0.3s ease;
+      z-index: 1; /* per essere sopra al cerchio del gradiente */
     }
-    button:hover {
-      background-color: #45a049;
+
+    /* Effetto “anello gradiente” con pseudo-elemento */
+    .circle-btn::before {
+      content: "";
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      border-radius: 50%;
+      background: linear-gradient(45deg, #00f260, #0575e6);
+      z-index: -1;
     }
+
+    /* Effetto hover */
+    .circle-btn:hover {
+      transform: scale(1.05);
+    }
+
+    /* Effetto “pressione” al click */
+    .circle-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* TESTO DEI RISULTATI */
     #coordinates {
       margin-top: 20px;
       font-size: 18px;
-      font-weight: bold;
+      font-weight: normal;
+      line-height: 1.5;
+    }
+
+    /* MEDIA QUERIES PER RESPONSIVITÀ */
+    @media (max-width: 480px) {
+      .circle-btn {
+        width: 90px;
+        height: 90px;
+        font-size: 14px;
+      }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Trova la tua posizione GPS</h1>
-    <p>Consenti l'accesso alla tua posizione per ottenere le coordinate GPS e l'indirizzo.</p>
-    <button onclick="getLocation()">Ottieni Coordinate</button>
+    <p>Consenti l'accesso alla tua posizione per ottenere coordinate e indirizzo.</p>
+    <!-- Bottone per ottenere le coordinate -->
+    <button class="circle-btn" onclick="getLocation()">VAI</button>
+    
+    <!-- Area dove mostrare i risultati -->
     <div id="coordinates"></div>
   </div>
 
   <script>
     function getLocation() {
+      const coordsDiv = document.getElementById("coordinates");
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(showPosition, showError);
       } else {
-        document.getElementById("coordinates").innerHTML = "Geolocalizzazione non supportata dal tuo browser.";
+        coordsDiv.innerHTML = "Geolocalizzazione non supportata dal tuo browser.";
       }
     }
 
@@ -68,48 +129,59 @@
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
       const coordinates = `Latitudine: ${lat.toFixed(6)}, Longitudine: ${lon.toFixed(6)}`;
-      document.getElementById("coordinates").innerHTML = coordinates + "<br>Recupero indirizzo...";
+      const coordsDiv = document.getElementById("coordinates");
 
-      // Chiamata al servizio di reverse geocoding tramite Nominatim
+      coordsDiv.innerHTML = coordinates + "<br>Recupero indirizzo...";
+
+      // Reverse Geocoding con Nominatim (OpenStreetMap)
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
 
       fetch(url)
         .then(response => response.json())
         .then(data => {
-          let address = data.address || {};
-          // Recupera la via (road) e la città (city, town o village)
-          let road = address.road ? address.road : "";
-          let city = address.city ? address.city : (address.town ? address.town : (address.village ? address.village : ""));
+          const address = data.address || {};
+          // Verifica se esistono informazioni su strada e città
+          const road = address.road ? address.road : "";
+          const city = address.city ? address.city 
+                     : (address.town ? address.town 
+                     : (address.village ? address.village : ""));
+          
           let displayAddress = "";
           if (road || city) {
             displayAddress = `<br>Indirizzo: ${road}${road && city ? ', ' : ''}${city}`;
           } else {
             displayAddress = "<br>Indirizzo non trovato.";
           }
-          // Visualizza le coordinate insieme all'indirizzo e aggiunge il pulsante per copiare
-          document.getElementById("coordinates").innerHTML = `
-            ${coordinates}${displayAddress}<br><br>
-            <button onclick="copyCoordinates('${lat.toFixed(6)}, ${lon.toFixed(6)} - ${road} ${city}')">Copia le coordinate</button>
+
+          coordsDiv.innerHTML = `
+            ${coordinates}${displayAddress}
+            <br><br>
+            <button class="circle-btn" 
+                    style="width: 140px; height: 50px; border-radius: 25px; font-size: 16px;"
+                    onclick="copyCoordinates('${lat.toFixed(6)}, ${lon.toFixed(6)} - ${road} ${city}')">
+              COPIA
+            </button>
           `;
         })
         .catch(error => {
-          document.getElementById("coordinates").innerHTML = `${coordinates}<br>Impossibile recuperare l'indirizzo.`;
+          coordsDiv.innerHTML = `${coordinates}<br>Impossibile recuperare l'indirizzo.`;
         });
     }
 
     function showError(error) {
+      const coordsDiv = document.getElementById("coordinates");
       switch(error.code) {
         case error.PERMISSION_DENIED:
-          document.getElementById("coordinates").innerHTML = "Permesso negato per la geolocalizzazione.";
+          coordsDiv.innerHTML = "Permesso negato per la geolocalizzazione.";
           break;
         case error.POSITION_UNAVAILABLE:
-          document.getElementById("coordinates").innerHTML = "Posizione non disponibile.";
+          coordsDiv.innerHTML = "Posizione non disponibile.";
           break;
         case error.TIMEOUT:
-          document.getElementById("coordinates").innerHTML = "Il tempo per ottenere la posizione è scaduto.";
+          coordsDiv.innerHTML = "Il tempo per ottenere la posizione è scaduto.";
           break;
         case error.UNKNOWN_ERROR:
-          document.getElementById("coordinates").innerHTML = "Si è verificato un errore sconosciuto.";
+          coordsDiv.innerHTML = "Si è verificato un errore sconosciuto.";
           break;
       }
     }
